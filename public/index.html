@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Baccarat Dealer System</title>
+    <link rel="stylesheet" href="css/tailwind.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="min-h-screen flex flex-col items-center p-2 md:p-4">
+
+    <!-- Header / Status Bar -->
+    <header class="w-full max-w-[960px] mb-2">
+        <div class="status-bar flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <h1 class="header-title">Baccarat Dealer</h1>
+                <span class="header-meta">Table <strong>1</strong></span>
+            </div>
+            <div class="flex items-center gap-5 header-meta">
+                <span>
+                    <span id="connection-dot" class="status-dot status-dot--wait"></span>
+                    <span id="connection-status">connecting</span>
+                </span>
+                <span id="game-state">idle</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Timer Bar -->
+    <div id="timer-container" class="w-full max-w-[960px] mb-2 hidden">
+        <div class="timer-strip flex items-center gap-4">
+            <span class="timer-label">Bet Time</span>
+            <div class="flex-1 timer-bar-container">
+                <div id="timer-bar" class="timer-bar" style="width: 100%"></div>
+            </div>
+            <span id="timer-value" class="timer-value">20</span>
+        </div>
+    </div>
+
+    <!-- Game Board -->
+    <div class="game-area w-full flex flex-col justify-center mb-3">
+
+        <!-- Status Message -->
+        <div id="status-message" class="text-center mb-5 md:mb-7 text-yellow-200">
+            Initializing...
+        </div>
+
+        <!-- RFID Scan Indicator -->
+        <div id="rfid-indicator" class="text-center rfid-dots mb-3 hidden"></div>
+
+        <!-- Main Layout: Banker | Player (center) + Extra (side) -->
+        <div class="board-grid">
+
+            <!-- Banker Side -->
+            <div class="board-col board-col--main">
+                <h2 id="banker-title" class="side-title side-title--banker">Banker</h2>
+                <div class="card-row">
+                    <div id="b1" class="card opacity-0"></div>
+                    <div id="b2" class="card opacity-0"></div>
+                </div>
+                <div class="score-area">
+                    <span class="score-label score-label--banker">Score</span>
+                    <div id="b-score" class="score-box score-box--banker">-</div>
+                </div>
+            </div>
+
+            <div class="col-divider"></div>
+
+            <!-- Player Side -->
+            <div class="board-col board-col--main">
+                <h2 id="player-title" class="side-title side-title--player">Player</h2>
+                <div class="card-row">
+                    <div id="p1" class="card opacity-0"></div>
+                    <div id="p2" class="card opacity-0"></div>
+                </div>
+                <div class="score-area">
+                    <span class="score-label score-label--player">Score</span>
+                    <div id="p-score" class="score-box score-box--player">-</div>
+                </div>
+            </div>
+
+            <div class="col-divider"></div>
+
+            <!-- Extra Cards (narrow side) -->
+            <div class="board-col board-col--extra">
+                <h2 class="section-label section-label--extra">Extra</h2>
+                <div class="card-row">
+                    <div class="card-slot">
+                        <span class="card-slot-label">5th</span>
+                        <div id="extra1" class="card opacity-0"></div>
+                    </div>
+                    <div class="card-slot">
+                        <span class="card-slot-label">6th</span>
+                        <div id="extra2" class="card opacity-0"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Suggestion Box -->
+        <div id="suggestion-box" class="suggestion-strip w-full mt-4 text-center hidden">
+            <div id="suggestion-content" class="flex flex-col items-center justify-center min-h-[44px]"></div>
+        </div>
+    </div>
+
+    <!-- Dealer Controls -->
+    <div id="dealer-controls" class="w-full max-w-[960px] mb-3">
+        <div class="flex gap-2 justify-center mb-2">
+            <button id="btn-start" class="ctrl-btn ctrl-btn-start">Start</button>
+            <button id="btn-stop" class="ctrl-btn ctrl-btn-stop hidden">Stop</button>
+            <button id="btn-result" class="ctrl-btn ctrl-btn-result hidden">Result</button>
+            <button id="btn-next" class="ctrl-btn ctrl-btn-next hidden">Next</button>
+        </div>
+        <div class="flex gap-2 justify-center">
+            <button id="btn-shuffle" class="ctrl-btn ctrl-btn-util">Shuffle</button>
+            <button id="btn-pause" class="ctrl-btn ctrl-btn-util" data-paused="false">Pause</button>
+            <button id="btn-last" class="ctrl-btn ctrl-btn-util">Last Game</button>
+        </div>
+    </div>
+
+    <!-- Virtual Keypad -->
+    <div id="virtual-keypad" class="keypad w-full max-w-[640px]">
+        <div class="keypad-row">
+            <button onclick="App.triggerKey('d')" class="keypad-btn keypad-suit suit-red">&#9830;</button>
+            <button onclick="App.triggerKey('s')" class="keypad-btn keypad-suit">&#9824;</button>
+            <button onclick="App.triggerKey('c')" class="keypad-btn keypad-suit">&#9827;</button>
+            <button onclick="App.triggerKey('h')" class="keypad-btn keypad-suit suit-red">&#9829;</button>
+        </div>
+        <div class="keypad-row">
+            <button onclick="App.triggerKey('1')" class="keypad-btn keypad-num">1</button>
+            <button onclick="App.triggerKey('2')" class="keypad-btn keypad-num">2</button>
+            <button onclick="App.triggerKey('3')" class="keypad-btn keypad-num">3</button>
+            <button onclick="App.triggerKey('4')" class="keypad-btn keypad-num">4</button>
+            <button onclick="App.triggerKey('5')" class="keypad-btn keypad-num">5</button>
+        </div>
+        <div class="keypad-row">
+            <button onclick="App.triggerKey('6')" class="keypad-btn keypad-num">6</button>
+            <button onclick="App.triggerKey('7')" class="keypad-btn keypad-num">7</button>
+            <button onclick="App.triggerKey('8')" class="keypad-btn keypad-num">8</button>
+            <button onclick="App.triggerKey('9')" class="keypad-btn keypad-num">9</button>
+            <button onclick="App.triggerKey('0')" class="keypad-btn keypad-num">0</button>
+        </div>
+        <div class="keypad-row">
+            <button onclick="App.triggerKey('Space')" class="keypad-btn keypad-action">Reset / Next (Space)</button>
+        </div>
+    </div>
+
+    <!-- FAB Toggle Keypad -->
+    <button onclick="App.toggleKeypad()" class="fab-btn" title="Toggle Keypad">&#9000;</button>
+
+    <!-- Result Overlay -->
+    <div id="result-overlay" class="result-overlay hidden">
+        <div class="result-box">
+            <div id="result-text"></div>
+            <div class="result-hint">Space / Next to continue</div>
+        </div>
+    </div>
+
+    <!-- JS Modules -->
+    <script src="js/modules/cardEngine.js"></script>
+    <script src="js/modules/cardRenderer.js"></script>
+    <script src="js/modules/rfidInput.js"></script>
+    <script src="js/modules/serverComm.js"></script>
+    <script src="js/modules/wsClient.js"></script>
+    <script src="js/modules/timerDisplay.js"></script>
+    <script src="js/modules/dataLogger.js"></script>
+    <script src="js/modules/gameFlow.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

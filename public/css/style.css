@@ -1,0 +1,657 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@500;700&display=swap');
+
+/* ── Design Tokens ─────────────────────────────── */
+:root {
+    --felt:       #14372A;
+    --felt-light: #1B4D3A;
+    --felt-dark:  #0D2A1F;
+    --gold:       #C5A55A;
+    --gold-dim:   #8B7640;
+    --gold-pale:  #D4C49A;
+    --ivory:      #F5F0E8;
+    --ivory-dim:  #E8E0D0;
+    --banker-red: #C62828;
+    --banker-bg:  rgba(198, 40, 40, 0.08);
+    --player-blue:#1565C0;
+    --player-bg:  rgba(21, 101, 192, 0.08);
+    --charcoal:   #1C1C1C;
+    --smoke:      rgba(255,255,255,0.06);
+    --smoke-10:   rgba(255,255,255,0.10);
+    --smoke-20:   rgba(255,255,255,0.20);
+    --font-display: 'DM Serif Display', Georgia, serif;
+    --font-body:    'DM Sans', system-ui, sans-serif;
+    --font-mono:    'JetBrains Mono', monospace;
+}
+
+/* ── Reset & Base ──────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; }
+
+body {
+    font-family: var(--font-body);
+    background-color: var(--felt-dark);
+    color: var(--ivory);
+    overflow-y: auto;
+    overscroll-behavior: none;
+    padding-bottom: 40px;
+    min-height: 100vh;
+    /* Subtle felt texture via noise */
+    background-image:
+        radial-gradient(ellipse at 50% 0%, var(--felt-light) 0%, transparent 70%),
+        url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+}
+
+/* ── Header / Status Bar ───────────────────────── */
+.status-bar {
+    background: var(--felt-dark);
+    border: 1px solid rgba(197, 165, 90, 0.15);
+    border-radius: 6px;
+    padding: 8px 16px;
+}
+
+.header-title {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    color: var(--gold);
+    letter-spacing: 0.03em;
+}
+
+.header-meta {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.35);
+}
+.header-meta strong {
+    color: var(--ivory);
+    font-weight: 700;
+}
+
+.status-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+}
+.status-dot--ok    { background: #4CAF50; }
+.status-dot--off   { background: #F44336; }
+.status-dot--wait  { background: var(--gold-dim); animation: blink 1.8s infinite; }
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.3; }
+}
+
+/* ── Timer ─────────────────────────────────────── */
+.timer-strip {
+    background: var(--felt-dark);
+    border: 1px solid rgba(197,165,90,0.12);
+    border-radius: 6px;
+    padding: 10px 16px;
+}
+.timer-label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold-dim);
+}
+.timer-bar-container {
+    height: 4px;
+    background: var(--smoke);
+    border-radius: 2px;
+    overflow: hidden;
+}
+.timer-bar {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--gold);
+    transition: width 1s linear;
+}
+.timer-bar.bg-red-500 {
+    background: var(--banker-red) !important;
+}
+.timer-bar.bg-yellow-400 {
+    background: var(--gold) !important;
+}
+.timer-value {
+    font-family: var(--font-mono);
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--gold);
+    line-height: 1;
+    min-width: 2ch;
+    text-align: right;
+}
+.timer-value.text-red-500 {
+    color: var(--banker-red) !important;
+}
+
+/* ── Game Board ────────────────────────────────── */
+.game-area {
+    max-width: 960px;
+    margin: 0 auto;
+    background:
+        linear-gradient(135deg, var(--felt) 0%, var(--felt-light) 40%, var(--felt) 100%);
+    border: 2px solid rgba(197,165,90,0.25);
+    border-radius: 12px;
+    padding: 16px;
+    position: relative;
+    /* Subtle inset shadow for depth - no glow */
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.04),
+        0 8px 32px rgba(0,0,0,0.4);
+}
+@media (min-width: 768px) {
+    .game-area { padding: 24px 28px; }
+}
+
+/* Gold corner ornaments */
+.game-area::before,
+.game-area::after {
+    content: '';
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    border-color: rgba(197,165,90,0.3);
+    border-style: solid;
+    pointer-events: none;
+}
+.game-area::before {
+    top: 6px; left: 6px;
+    border-width: 2px 0 0 2px;
+    border-radius: 4px 0 0 0;
+}
+.game-area::after {
+    bottom: 6px; right: 6px;
+    border-width: 0 2px 2px 0;
+    border-radius: 0 0 4px 0;
+}
+
+/* ── Board Grid Layout ─────────────────────────── */
+.board-grid {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+}
+.board-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 8px;
+}
+.board-col--main {
+    flex: 1 1 0;
+}
+.board-col--extra {
+    flex: 0 0 auto;
+    min-width: 140px;
+}
+@media (min-width: 768px) {
+    .board-col { padding: 0 16px; }
+    .board-col--extra { min-width: 180px; }
+}
+.card-row {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 12px;
+    min-height: 82px;
+}
+@media (min-width: 768px) {
+    .card-row {
+        gap: 12px;
+        min-height: 110px;
+    }
+}
+.card-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.score-area {
+    text-align: center;
+}
+
+/* ── Status Message ────────────────────────────── */
+#status-message {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    min-height: 24px;
+    transition: color 0.3s ease;
+}
+/* Override Tailwind color classes */
+#status-message.text-yellow-200 { color: var(--gold-pale) !important; }
+#status-message.text-green-400  { color: #66BB6A !important; }
+#status-message.text-red-400    { color: #EF5350 !important; }
+#status-message.text-orange-400 { color: #FFA726 !important; }
+#status-message.text-yellow-400 { color: var(--gold) !important; }
+#status-message.text-cyan-400   { color: #4DD0E1 !important; }
+
+/* ── RFID Indicator ────────────────────────────── */
+.rfid-dots {
+    font-family: var(--font-mono);
+    font-size: 1.2rem;
+    letter-spacing: 6px;
+    color: var(--gold);
+}
+
+/* ── Section Labels ────────────────────────────── */
+.section-label {
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding-bottom: 6px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--smoke-10);
+}
+.section-label--extra  { color: var(--gold-dim); }
+.section-label--banker { color: var(--banker-red); }
+.section-label--player { color: var(--player-blue); }
+
+.side-title {
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    letter-spacing: 0.05em;
+    margin-bottom: 14px;
+    transition: all 0.3s ease;
+}
+@media (min-width: 768px) {
+    .side-title { font-size: 1.6rem; }
+}
+.side-title--banker { color: var(--banker-red); }
+.side-title--player { color: var(--player-blue); }
+
+/* Winner highlight — solid background, no glow */
+.side-title--winner {
+    background: var(--banker-red);
+    color: white !important;
+    padding: 2px 14px;
+    border-radius: 4px;
+}
+
+/* ── Card Slot Label ───────────────────────────── */
+.card-slot-label {
+    font-family: var(--font-mono);
+    font-size: 0.55rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.25);
+    margin-bottom: 4px;
+}
+
+/* ── Cards ─────────────────────────────────────── */
+.card {
+    width: 58px;
+    height: 82px;
+    background: var(--ivory);
+    border-radius: 5px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 1px;
+    position: relative;
+    cursor: pointer;
+    /* Clean shadow, no glow */
+    box-shadow:
+        0 2px 4px rgba(0,0,0,0.25),
+        0 1px 1px rgba(0,0,0,0.15);
+    border: 1.5px solid var(--ivory-dim);
+    transition: transform 0.2s ease, border-color 0.2s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+@media (min-width: 768px) {
+    .card {
+        width: 80px;
+        height: 110px;
+        gap: 2px;
+        border-radius: 6px;
+    }
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    border-color: var(--gold-dim);
+}
+.card.active {
+    opacity: 1;
+    transform: translateY(0);
+}
+.card.opacity-0 {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.card-symbol {
+    font-size: 1.6rem;
+    line-height: 1;
+}
+.card-val {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: -1px;
+}
+
+@media (min-width: 768px) {
+    .card-symbol { font-size: 2rem; }
+    .card-val    { font-size: 2.5rem; }
+}
+
+.suit-red   { color: #B71C1C; }
+.suit-black { color: #1A1A1A; }
+
+/* Unused card */
+.card.unused {
+    background: #3A5A4A;
+    border-color: #2E4A3C;
+    opacity: 0.7;
+    transform: scale(0.95);
+}
+.card.unused .suit-red,
+.card.unused .suit-black {
+    color: #6B8B7B;
+}
+
+/* Extra card ownership — subtle border accent only */
+.card.banker-extra {
+    border-color: rgba(198, 40, 40, 0.5);
+}
+.card.player-extra {
+    border-color: rgba(21, 101, 192, 0.5);
+}
+
+/* Editing state — solid gold border, no glow */
+.editing {
+    background-color: #FFF8E1 !important;
+    border: 2.5px solid var(--gold) !important;
+    transform: scale(1.08);
+    z-index: 50;
+}
+
+/* Suggestion target — pulsing border only, no glow */
+.suggestion-target {
+    background-color: #FFEBEE !important;
+    border: 2.5px solid var(--banker-red) !important;
+    animation: pulse-border 2s infinite;
+    z-index: 40;
+}
+
+@keyframes pulse-border {
+    0%, 100% { border-color: var(--banker-red); }
+    50%      { border-color: rgba(198, 40, 40, 0.3); }
+}
+
+/* ── Score Display ─────────────────────────────── */
+.score-label {
+    font-family: var(--font-mono);
+    font-size: 0.55rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+}
+.score-label--banker { color: rgba(198, 40, 40, 0.5); }
+.score-label--player { color: rgba(21, 101, 192, 0.5); }
+
+.score-box {
+    font-family: var(--font-display);
+    font-size: 2.8rem;
+    font-weight: 400;
+    line-height: 1;
+    margin-top: 2px;
+}
+.score-box--banker { color: var(--banker-red); }
+.score-box--player { color: var(--player-blue); }
+
+@media (min-width: 768px) {
+    .score-box { font-size: 3.4rem; }
+}
+
+/* ── Suggestion Box ────────────────────────────── */
+.suggestion-strip {
+    background: rgba(198, 40, 40, 0.06);
+    border: 1px solid rgba(198, 40, 40, 0.2);
+    border-radius: 6px;
+    padding: 10px;
+}
+.suggestion-strip .score-box {
+    color: var(--gold);
+}
+
+/* ── Control Buttons ───────────────────────────── */
+.ctrl-btn {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 10px 28px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: 1.5px solid transparent;
+    position: relative;
+}
+.ctrl-btn:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.1);
+}
+.ctrl-btn:active {
+    transform: translateY(0);
+    filter: brightness(0.95);
+}
+.ctrl-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    transform: none;
+    filter: none;
+}
+
+.ctrl-btn-start {
+    background: #2E7D32;
+    color: white;
+    border-color: #1B5E20;
+}
+.ctrl-btn-stop {
+    background: var(--banker-red);
+    color: white;
+    border-color: #B71C1C;
+}
+.ctrl-btn-result {
+    background: var(--player-blue);
+    color: white;
+    border-color: #0D47A1;
+}
+.ctrl-btn-next {
+    background: var(--gold-dim);
+    color: white;
+    border-color: #6D5A2E;
+}
+.ctrl-btn-util {
+    background: transparent;
+    color: rgba(255,255,255,0.4);
+    border-color: var(--smoke-10);
+    font-size: 0.65rem;
+    padding: 7px 16px;
+}
+.ctrl-btn-util:hover {
+    background: var(--smoke);
+    color: rgba(255,255,255,0.7);
+    border-color: var(--smoke-20);
+}
+
+/* ── Result Overlay ────────────────────────────── */
+.result-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 20, 15, 0.85);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 200;
+    animation: fadeIn 0.25s ease;
+}
+.result-overlay.hidden { display: none; }
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.result-box {
+    background:
+        linear-gradient(145deg, var(--felt-dark) 0%, var(--felt) 100%);
+    border: 1.5px solid rgba(197,165,90,0.3);
+    border-radius: 10px;
+    padding: 36px 56px;
+    text-align: center;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+    animation: resultIn 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.result-box::before {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 2px;
+    background: var(--gold-dim);
+    margin: 0 auto 16px;
+}
+
+#result-text {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    color: var(--ivory);
+    line-height: 1.2;
+}
+#result-text.result--banker { color: #EF5350; }
+#result-text.result--player { color: #42A5F5; }
+#result-text.result--tie    { color: var(--gold); }
+@media (min-width: 768px) {
+    #result-text { font-size: 2.8rem; }
+}
+
+.result-hint {
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.25);
+    margin-top: 12px;
+}
+
+@keyframes resultIn {
+    from { transform: scale(0.92) translateY(8px); opacity: 0; }
+    to   { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* ── Column Dividers ───────────────────────────── */
+.col-divider {
+    width: 1px;
+    align-self: stretch;
+    background: linear-gradient(
+        to bottom,
+        transparent 0%,
+        var(--smoke-10) 20%,
+        var(--smoke-10) 80%,
+        transparent 100%
+    );
+}
+
+/* ── Virtual Keypad ────────────────────────────── */
+.keypad {
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--smoke-10);
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 16px;
+}
+.keypad-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+.keypad-row:last-child { margin-bottom: 0; }
+
+.keypad-btn {
+    flex: 1;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border: 1px solid var(--smoke-10);
+    background: var(--smoke);
+    color: var(--ivory);
+    font-family: var(--font-body);
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.1s, transform 0.1s;
+    user-select: none;
+    -webkit-tap-highlight-color: rgba(255,255,255,0.1);
+}
+.keypad-btn:active {
+    background: var(--smoke-20);
+    transform: scale(0.96);
+}
+
+.keypad-suit {
+    font-size: 1.5rem;
+    color: var(--ivory);
+}
+.keypad-suit.suit-red { color: #EF5350; }
+
+.keypad-num {
+    font-family: var(--font-mono);
+    font-size: 1.15rem;
+}
+
+.keypad-action {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: var(--gold-dim);
+    color: var(--felt-dark);
+    border-color: rgba(197,165,90,0.3);
+}
+.keypad-action:active {
+    background: var(--gold);
+}
+
+/* ── FAB Toggle Button ─────────────────────────── */
+.fab-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--felt-light);
+    color: var(--gold);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 1.5px solid rgba(197,165,90,0.3);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    font-size: 1.3rem;
+    cursor: pointer;
+    transition: transform 0.2s, background 0.2s;
+    z-index: 100;
+}
+.fab-btn:hover  { transform: scale(1.05); background: var(--felt); }
+.fab-btn:active { transform: scale(0.95); }
+
+/* ── Utility ───────────────────────────────────── */
+.hidden { display: none !important; }

@@ -1,0 +1,23 @@
+{
+  "name": "dealer-system",
+  "version": "1.0.0",
+  "description": "Baccarat Dealer System - Web UI with data forwarding",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "nodemon server/index.js",
+    "build:css": "tailwindcss -i public/css/tailwind-input.css -o public/css/tailwind.css --content 'public/**/*.{html,js}' --minify"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.0",
+    "node-fetch": "^2.7.0",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.18",
+    "nodemon": "^3.0.0",
+    "tailwindcss": "^4.1.18"
+  }
+}
