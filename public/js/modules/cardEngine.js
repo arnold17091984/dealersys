@@ -1,7 +1,8 @@
 // Card Engine - Extracted from dealer_tools/js/roule.js
 // RFID code mapping, baccarat rules, result calculation
 
-const CODE_MAP = {
+// Default CODE_MAP (fallback when DB is unavailable)
+const DEFAULT_CODE_MAP = {
   // Spades
   '24580': { suit: 's', rank: 'A', value: 1 },
   '19204': { suit: 's', rank: '2', value: 2 },
@@ -16,7 +17,6 @@ const CODE_MAP = {
   '49924': { suit: 's', rank: 'J', value: 0 },
   '06660': { suit: 's', rank: 'Q', value: 0 },
   '15108': { suit: 's', rank: 'K', value: 0 },
-
   // Diamonds
   '19972': { suit: 'd', rank: 'A', value: 1 },
   '11012': { suit: 'd', rank: '2', value: 2 },
@@ -26,12 +26,10 @@ const CODE_MAP = {
   '12548': { suit: 'd', rank: '6', value: 6 },
   '28164': { suit: 'd', rank: '7', value: 7 },
   '35076': { suit: 'd', rank: '8', value: 8 },
-  // Note: '11012' duplicate in original - D9 shares code with D2
   '22788': { suit: 'd', rank: '10', value: 0 },
   '36356': { suit: 'd', rank: 'J', value: 0 },
   '37380': { suit: 'd', rank: 'Q', value: 0 },
   '20740': { suit: 'd', rank: 'K', value: 0 },
-
   // Hearts
   '45316': { suit: 'h', rank: 'A', value: 1 },
   '12804': { suit: 'h', rank: '2', value: 2 },
@@ -46,22 +44,29 @@ const CODE_MAP = {
   '08708': { suit: 'h', rank: 'J', value: 0 },
   '13828': { suit: 'h', rank: 'Q', value: 0 },
   '46084': { suit: 'h', rank: 'K', value: 0 },
-
   // Clubs
   '44292': { suit: 'c', rank: 'A', value: 1 },
   '23300': { suit: 'c', rank: '2', value: 2 },
-  // Note: '19204' duplicate in original - C3 shares code with S2
   '49156': { suit: 'c', rank: '4', value: 4 },
   '32772': { suit: 'c', rank: '5', value: 5 },
-  // Note: '36356' duplicate - C6 shares code with DJ
   '10244': { suit: 'c', rank: '7', value: 7 },
-  // Note: '08452' duplicate - C8 shares code with D5
   '48132': { suit: 'c', rank: '9', value: 9 },
-  // Note: '18436' duplicate - C10 shares code with S7
   '05636': { suit: 'c', rank: 'J', value: 0 },
   '15876': { suit: 'c', rank: 'Q', value: 0 },
   '23556': { suit: 'c', rank: 'K', value: 0 },
 };
+
+// Mutable code map (loaded from DB, falls back to DEFAULT_CODE_MAP)
+let codeMap = { ...DEFAULT_CODE_MAP };
+
+// Load code map from API response (array of {rfid_code, suit, rank, value})
+function loadCodeMap(entries) {
+  codeMap = {};
+  for (const entry of entries) {
+    codeMap[entry.rfid_code] = { suit: entry.suit, rank: entry.rank, value: entry.value };
+  }
+  console.log(`[CardEngine] Loaded ${entries.length} card codes from DB`);
+}
 
 const SUITS = {
   d: { symbol: '\u2666', color: 'suit-red', name: 'Diamonds' },
@@ -72,11 +77,11 @@ const SUITS = {
 
 // Card position mapping (scan order → logical position)
 // Scan order: 0=P-Right, 1=B-Right, 2=P-Left, 3=B-Left, 4=Extra-Right(5th), 5=Extra-Left(6th)
-const POSITION_NAMES = ['P-Right', 'B-Right', 'P-Left', 'B-Left', '5th Card', '6th Card'];
+let positionNames = ['P-Right', 'B-Right', 'P-Left', 'B-Left', '5th Card', '6th Card'];
 
 // Server card position mapping
 // intPosi: 1=Player1, 2=Player2, 3=Player3, 4=Banker1, 5=Banker2, 6=Banker3
-const SCAN_TO_SERVER_POS = {
+let scanToServerPos = {
   0: 2, // P-Right → Player2
   1: 5, // B-Right → Banker2
   2: 1, // P-Left → Player1
@@ -85,8 +90,22 @@ const SCAN_TO_SERVER_POS = {
   5: -1, // 6th card (dynamic: Banker3)
 };
 
+// Load scan order from server config
+function loadScanOrder(config) {
+  if (config.positionNames) {
+    positionNames = config.positionNames;
+  }
+  if (config.scanToServerPos) {
+    scanToServerPos = {};
+    for (const [k, v] of Object.entries(config.scanToServerPos)) {
+      scanToServerPos[parseInt(k)] = v;
+    }
+  }
+  console.log('[CardEngine] Loaded scan order from config');
+}
+
 function resolveCode(code) {
-  return CODE_MAP[code] ? { ...CODE_MAP[code], rfidCode: code } : null;
+  return codeMap[code] ? { ...codeMap[code], rfidCode: code } : null;
 }
 
 function doesBankerDraw(bankerScore, playerThirdCard) {
@@ -254,10 +273,12 @@ function parseServerCards(cardStr) {
 }
 
 window.CardEngine = {
-  CODE_MAP,
+  get CODE_MAP() { return codeMap; },
   SUITS,
-  POSITION_NAMES,
-  SCAN_TO_SERVER_POS,
+  get POSITION_NAMES() { return positionNames; },
+  get SCAN_TO_SERVER_POS() { return scanToServerPos; },
+  loadCodeMap,
+  loadScanOrder,
   resolveCode,
   doesBankerDraw,
   getSimulatedResult,

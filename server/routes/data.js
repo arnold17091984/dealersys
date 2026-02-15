@@ -72,4 +72,41 @@ router.get('/forward/status', (req, res) => {
   }
 });
 
+// GET /api/data/card-codes - All RFID card mappings
+router.get('/card-codes', (req, res) => {
+  try {
+    const codes = dataStore.getAllCardCodes();
+    res.json(codes);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/data/card-codes/:rfidCode - Upsert a card code mapping
+router.put('/card-codes/:rfidCode', (req, res) => {
+  try {
+    const { suit, rank, value, notes } = req.body;
+    if (!suit || !rank || value === undefined) {
+      return res.status(400).json({ error: 'suit, rank, and value are required' });
+    }
+    dataStore.upsertCardCode(req.params.rfidCode, suit, rank, parseInt(value), notes);
+    res.json({ success: true, rfidCode: req.params.rfidCode });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/data/card-codes/:rfidCode - Delete a card code mapping
+router.delete('/card-codes/:rfidCode', (req, res) => {
+  try {
+    const result = dataStore.deleteCardCode(req.params.rfidCode);
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Card code not found' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

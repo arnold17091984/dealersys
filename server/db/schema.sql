@@ -37,3 +37,13 @@ CREATE TABLE IF NOT EXISTS forward_queue (
     created_at TEXT DEFAULT (datetime('now')),
     sent_at TEXT
 );
+
+CREATE TABLE IF NOT EXISTS card_codes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    rfid_code TEXT NOT NULL UNIQUE,
+    suit TEXT NOT NULL,
+    rank TEXT NOT NULL,
+    value INTEGER NOT NULL,
+    notes TEXT,
+    updated_at TEXT DEFAULT (datetime('now'))
+);

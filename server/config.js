@@ -31,6 +31,12 @@ module.exports = {
     maxRetries: 3,
   },
 
+  // Scan order configuration
+  scanOrder: {
+    positionNames: ['P-Right', 'B-Right', 'P-Left', 'B-Left', '5th Card', '6th Card'],
+    scanToServerPos: { 0: 2, 1: 5, 2: 1, 3: 4, 4: -1, 5: -1 },
+  },
+
   // SQLite database path
   dbPath: './data/dealer.sqlite',
 };

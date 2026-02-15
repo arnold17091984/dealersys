@@ -37,6 +37,7 @@ app.get('/api/config', (req, res) => {
     dealer: config.dealer,
     table: config.table.number,
     mode: config.mode,
+    scanOrder: config.scanOrder,
   });
 });
 

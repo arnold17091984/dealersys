@@ -77,6 +77,10 @@ const ServerComm = {
     return this.get('/data/forward/status');
   },
 
+  async getCardCodes() {
+    return this.get('/data/card-codes');
+  },
+
   async getHealth() {
     return this.get('/health');
   },

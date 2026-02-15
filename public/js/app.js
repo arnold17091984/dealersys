@@ -17,8 +17,24 @@ const App = {
     this.setupWsHandlers();
     this.bindButtons();
 
+    // Load card codes from DB before authenticating
+    await this.loadCardCodes();
+
     // Auto-authenticate
     await this.authenticate();
+  },
+
+  async loadCardCodes() {
+    try {
+      const codes = await ServerComm.getCardCodes();
+      if (Array.isArray(codes) && codes.length > 0) {
+        CardEngine.loadCodeMap(codes);
+      } else {
+        console.warn('[App] No card codes from DB, using defaults');
+      }
+    } catch (err) {
+      console.warn('[App] Failed to load card codes from DB, using defaults:', err.message);
+    }
   },
 
   cacheElements() {
@@ -307,6 +323,9 @@ const App = {
       if (cfg && cfg.dealer) {
         this.table = cfg.table || 1;
         this.mode = cfg.mode || 'active';
+        if (cfg.scanOrder) {
+          CardEngine.loadScanOrder(cfg.scanOrder);
+        }
         GameFlow.init(this.table);
 
         this.setStatus('Authenticating...', 'info');
@@ -381,6 +400,7 @@ const App = {
         GameFlow.state = GameFlow.BETTING;
         GameFlow.gameId = Date.now().toString();
         GameFlow.deck = [];
+        GameFlow.cardBuffer = [];
         this.roundSaved = false;
         if (data.gameRound) GameFlow.roundNo = data.gameRound;
         if (data.gameIdx) GameFlow.shoeIdx = data.gameIdx;
@@ -410,6 +430,8 @@ const App = {
         if (GameFlow.state === GameFlow.BETTING || GameFlow.state === GameFlow.IDLE) {
           GameFlow.state = GameFlow.DEALING;
           GameFlow.emitStateChange();
+          // Flush any cards buffered during betting
+          GameFlow.flushCardBuffer();
           if (this.mode === 'active') {
             // RFID already enabled from BETTING, just update status
             this.setStatus('No more bets — Scan cards', 'dealing');

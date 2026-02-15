@@ -14,6 +14,7 @@ const GameFlow = {
   roundNo: null,
   shoeIdx: null,
   deck: [], // Scanned cards in order
+  cardBuffer: [], // Cards scanned during BETTING, flushed after stopBetting
   betTimer: 20, // Default bet time seconds
 
   // Callbacks
@@ -54,6 +55,7 @@ const GameFlow = {
         this.gameId = result.gameId || Date.now().toString();
         this.roundNo = result.roundNo || null;
         this.deck = [];
+        this.cardBuffer = [];
         DataLogger.startRound(this.gameId);
         this.emitStateChange();
         return true;
@@ -78,6 +80,8 @@ const GameFlow = {
       await ServerComm.stopBetting(this.table);
       this.state = this.DEALING;
       this.emitStateChange();
+      // Flush any cards buffered during betting
+      await this.flushCardBuffer();
       return true;
     } catch (err) {
       this.emitError('Stop betting error: ' + err.message);
@@ -87,6 +91,7 @@ const GameFlow = {
 
   // Process a scanned RFID code
   // Cards can be scanned during BETTING (while timer runs) and DEALING states
+  // During BETTING, cards are buffered locally and NOT sent to server (security)
   async processCard(code) {
     if (this.state !== this.DEALING && this.state !== this.BETTING) {
       console.warn('[GameFlow] Cannot process card: state is', this.state);
@@ -105,15 +110,12 @@ const GameFlow = {
     // Log the scan
     DataLogger.logCardScan(position, card);
 
-    // Send card to game server
-    const serverPos = this.getServerPosition(position);
-    if (serverPos > 0) {
-      const cardIdx = this.getCardIndex(card);
-      try {
-        await ServerComm.sendCard(this.table, serverPos, cardIdx, code);
-      } catch (err) {
-        console.error('[GameFlow] Send card error:', err);
-      }
+    if (this.state === this.BETTING) {
+      // Buffer card during BETTING - do NOT send to server
+      this.cardBuffer.push({ position, card, code });
+    } else {
+      // DEALING state - send immediately
+      this.sendCardToServer(position, card, code);
     }
 
     if (this.onCardAdded) {
@@ -130,13 +132,36 @@ const GameFlow = {
     return card;
   },
 
+  // Send a single card to the game server
+  async sendCardToServer(position, card, code) {
+    const serverPos = this.getServerPosition(position);
+    if (serverPos > 0) {
+      const cardIdx = this.getCardIndex(card);
+      try {
+        await ServerComm.sendCard(this.table, serverPos, cardIdx, code);
+      } catch (err) {
+        console.error('[GameFlow] Send card error:', err);
+      }
+    }
+  },
+
+  // Flush buffered cards to server (called after stopBetting)
+  async flushCardBuffer() {
+    const buffered = this.cardBuffer.splice(0);
+    for (const { position, card, code } of buffered) {
+      await this.sendCardToServer(position, card, code);
+    }
+    if (buffered.length > 0) {
+      console.log(`[GameFlow] Flushed ${buffered.length} buffered cards to server`);
+    }
+  },
+
   // Map scan position to server intPosi
   getServerPosition(scanIndex) {
-    // Scan order: 0=P-Right, 1=B-Right, 2=P-Left, 3=B-Left
-    // Server: 1=Player1, 2=Player2, 3=Player3, 4=Banker1, 5=Banker2, 6=Banker3
-    const map = { 0: 2, 1: 5, 2: 1, 3: 4 };
+    // Use configurable mapping from CardEngine
+    const map = CardEngine.SCAN_TO_SERVER_POS;
 
-    if (scanIndex < 4) return map[scanIndex];
+    if (scanIndex < 4) return map[scanIndex] || 0;
 
     // 5th and 6th cards: determine owner dynamically
     const result = CardEngine.getSimulatedResult(this.deck.slice(0, scanIndex));
@@ -192,6 +217,7 @@ const GameFlow = {
     this.state = this.IDLE;
     this.gameId = null;
     this.deck = [];
+    this.cardBuffer = [];
     this.emitStateChange();
   },
 
