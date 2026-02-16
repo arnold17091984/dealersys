@@ -38,12 +38,22 @@ CREATE TABLE IF NOT EXISTS forward_queue (
     sent_at TEXT
 );
 
-CREATE TABLE IF NOT EXISTS card_codes (
+-- RFIDコード → カードマッピング（CODE_MAPの代替）
+CREATE TABLE IF NOT EXISTS rfid_codes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     rfid_code TEXT NOT NULL UNIQUE,
     suit TEXT NOT NULL,
     rank TEXT NOT NULL,
     value INTEGER NOT NULL,
     notes TEXT,
+    updated_at TEXT DEFAULT (datetime('now'))
+);
+
+-- スキャン順序マッピング（POSITION_NAMES + SCAN_TO_SERVER_POSの代替）
+CREATE TABLE IF NOT EXISTS scan_positions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    scan_index INTEGER NOT NULL UNIQUE,
+    position_name TEXT NOT NULL,
+    server_intposi INTEGER NOT NULL,
     updated_at TEXT DEFAULT (datetime('now'))
 );

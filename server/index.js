@@ -9,6 +9,7 @@ const websocketBridge = require('./services/websocketBridge');
 const forwarder = require('./services/forwarder');
 const proxyRoutes = require('./routes/proxy');
 const dataRoutes = require('./routes/data');
+const adminRoutes = require('./routes/admin');
 
 // Validate mode
 if (!['active', 'passive'].includes(config.mode)) {
@@ -30,6 +31,7 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 // API routes
 app.use('/api/dealer', proxyRoutes);
 app.use('/api/data', dataRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Client config (dealer credentials + table + mode)
 app.get('/api/config', (req, res) => {

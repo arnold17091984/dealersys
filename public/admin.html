@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - RFID Code Management</title>
+    <link rel="stylesheet" href="css/tailwind.css">
+    <style>
+        body { background: #0f172a; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; }
+        table { border-collapse: collapse; width: 100%; }
+        th { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 2px solid #334155; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; color: #94a3b8; letter-spacing: 0; }
+        td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #1e293b; font-variant-numeric: tabular-nums; }
+        tr:hover td { background: #1e293b; }
+        .placeholder-code { background: #422006; }
+        .placeholder-code td { color: #fbbf24; }
+        .suit-red { color: #ef4444; }
+        .suit-black { color: #e2e8f0; }
+        input, select { background: #1e293b; border: 1px solid #334155; color: #e2e8f0; padding: 0.375rem 0.5rem; border-radius: 0.375rem; font-size: 0.875rem; }
+        input:focus, select:focus { outline: 2px solid #3b82f6; outline-offset: -1px; border-color: #3b82f6; }
+        button { cursor: pointer; border: none; border-radius: 0.375rem; padding: 0.375rem 0.75rem; font-size: 0.875rem; font-weight: 500; }
+        .btn-primary { background: #2563eb; color: white; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-danger { background: #dc2626; color: white; }
+        .btn-danger:hover { background: #b91c1c; }
+        .btn-secondary { background: #334155; color: #e2e8f0; }
+        .btn-secondary:hover { background: #475569; }
+        .status-msg { padding: 0.5rem 0.75rem; border-radius: 0.375rem; font-size: 0.875rem; margin-bottom: 1rem; }
+        .status-ok { background: #052e16; color: #4ade80; }
+        .status-err { background: #450a0a; color: #fca5a5; }
+        dialog { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 0.5rem; padding: 1.5rem; max-width: 24rem; width: 100%; }
+        dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+    </style>
+</head>
+<body class="min-h-dvh p-4 md:p-8">
+    <div class="max-w-5xl mx-auto">
+        <!-- Header -->
+        <header class="flex items-center justify-between mb-6">
+            <div>
+                <h1 class="text-xl font-bold text-balance">RFID Code Management</h1>
+                <p class="text-sm text-slate-400 text-pretty">Manage card-to-RFID mappings and scan positions</p>
+            </div>
+            <a href="/" class="btn-secondary" style="text-decoration:none; display:inline-block;">Back to Dealer</a>
+        </header>
+
+        <!-- Status -->
+        <div id="status" class="status-msg hidden"></div>
+
+        <!-- RFID Codes Section -->
+        <section class="mb-8">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-lg font-semibold text-balance">RFID Codes <span id="code-count" class="text-sm font-normal text-slate-400"></span></h2>
+                <button class="btn-primary" onclick="showAddDialog()">Add Code</button>
+            </div>
+            <div class="overflow-x-auto rounded-lg border border-slate-700">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>RFID Code</th>
+                            <th>Suit</th>
+                            <th>Rank</th>
+                            <th>Value</th>
+                            <th>Updated</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="codes-tbody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Scan Positions Section -->
+        <section class="mb-8">
+            <h2 class="text-lg font-semibold mb-3 text-balance">Scan Positions</h2>
+            <div class="overflow-x-auto rounded-lg border border-slate-700">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Index</th>
+                            <th>Position Name</th>
+                            <th>Server intPosi</th>
+                            <th>Updated</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="positions-tbody"></tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <!-- Add/Edit Code Dialog -->
+    <dialog id="code-dialog">
+        <h3 class="text-lg font-semibold mb-4 text-balance" id="dialog-title">Add RFID Code</h3>
+        <form id="code-form" class="flex flex-col gap-3" onsubmit="return handleCodeSubmit(event)">
+            <div>
+                <label class="block text-sm text-slate-400 mb-1">RFID Code (5 digits)</label>
+                <input type="text" id="f-code" required pattern="\d{5}" maxlength="5" class="w-full" autocomplete="off">
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Suit</label>
+                    <select id="f-suit" required class="w-full">
+                        <option value="s">&#9824; Spades</option>
+                        <option value="d">&#9830; Diamonds</option>
+                        <option value="h">&#9829; Hearts</option>
+                        <option value="c">&#9827; Clubs</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Rank</label>
+                    <select id="f-rank" required class="w-full">
+                        <option value="A">A</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                        <option value="10">10</option>
+                        <option value="J">J</option>
+                        <option value="Q">Q</option>
+                        <option value="K">K</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Value</label>
+                    <input type="number" id="f-value" required min="0" max="9" class="w-full" readonly>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-2">
+                <button type="button" class="btn-secondary" onclick="document.getElementById('code-dialog').close()">Cancel</button>
+                <button type="submit" class="btn-primary" id="dialog-submit">Save</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Delete Confirmation Dialog -->
+    <dialog id="delete-dialog">
+        <h3 class="text-lg font-semibold mb-2 text-balance">Delete RFID Code</h3>
+        <p class="text-sm text-slate-400 mb-4 text-pretty">Are you sure you want to delete code <strong id="delete-code-display"></strong>? This action cannot be undone.</p>
+        <div class="flex justify-end gap-2">
+            <button class="btn-secondary" onclick="document.getElementById('delete-dialog').close()">Cancel</button>
+            <button class="btn-danger" id="delete-confirm-btn">Delete</button>
+        </div>
+    </dialog>
+
+    <!-- Edit Position Dialog -->
+    <dialog id="position-dialog">
+        <h3 class="text-lg font-semibold mb-4 text-balance">Edit Scan Position</h3>
+        <form id="position-form" class="flex flex-col gap-3" onsubmit="return handlePositionSubmit(event)">
+            <input type="hidden" id="fp-index">
+            <div>
+                <label class="block text-sm text-slate-400 mb-1">Position Name</label>
+                <input type="text" id="fp-name" required class="w-full" autocomplete="off">
+            </div>
+            <div>
+                <label class="block text-sm text-slate-400 mb-1">Server intPosi (-1 = dynamic)</label>
+                <input type="number" id="fp-intposi" required min="-1" max="6" class="w-full">
+            </div>
+            <div class="flex justify-end gap-2 mt-2">
+                <button type="button" class="btn-secondary" onclick="document.getElementById('position-dialog').close()">Cancel</button>
+                <button type="submit" class="btn-primary">Save</button>
+            </div>
+        </form>
+    </dialog>
+
+    <script>
+    const SUIT_SYMBOLS = { s: '\u2660', d: '\u2666', h: '\u2665', c: '\u2663' };
+    const SUIT_COLORS = { s: 'suit-black', d: 'suit-red', h: 'suit-red', c: 'suit-black' };
+    const RANK_VALUES = { A: 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 0, J: 0, Q: 0, K: 0 };
+    const PLACEHOLDER_CODES = ['99901', '99902', '99903', '99904', '99905'];
+
+    let allCodes = [];
+
+    // Auto-fill value based on rank selection
+    document.getElementById('f-rank').addEventListener('change', function() {
+      document.getElementById('f-value').value = RANK_VALUES[this.value] ?? 0;
+    });
+
+    function showStatus(msg, ok) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = 'status-msg ' + (ok ? 'status-ok' : 'status-err');
+      el.classList.remove('hidden');
+      setTimeout(() => el.classList.add('hidden'), 3000);
+    }
+
+    // --- RFID Codes ---
+
+    async function loadCodes() {
+      try {
+        const resp = await fetch('/api/admin/rfid-codes');
+        allCodes = await resp.json();
+        renderCodes(allCodes);
+      } catch (err) {
+        showStatus('Failed to load codes: ' + err.message, false);
+      }
+    }
+
+    function renderCodes(codes) {
+      document.getElementById('code-count').textContent = `(${codes.length} cards)`;
+      const tbody = document.getElementById('codes-tbody');
+      tbody.innerHTML = '';
+      for (const c of codes) {
+        const isPlaceholder = PLACEHOLDER_CODES.includes(c.rfid_code);
+        const tr = document.createElement('tr');
+        if (isPlaceholder) tr.className = 'placeholder-code';
+        tr.innerHTML = `
+          <td style="font-variant-numeric:tabular-nums">${c.rfid_code}${isPlaceholder ? ' <span style="font-size:0.7rem;opacity:0.7">(placeholder)</span>' : ''}</td>
+          <td class="${SUIT_COLORS[c.suit]}">${SUIT_SYMBOLS[c.suit] || c.suit}</td>
+          <td>${c.rank}</td>
+          <td style="font-variant-numeric:tabular-nums">${c.value}</td>
+          <td style="font-size:0.75rem;color:#64748b">${c.updated_at || ''}</td>
+          <td>
+            <button class="btn-secondary" style="padding:0.25rem 0.5rem;font-size:0.75rem;margin-right:0.25rem" onclick="editCode('${c.rfid_code}')">Edit</button>
+            <button class="btn-danger" style="padding:0.25rem 0.5rem;font-size:0.75rem" onclick="confirmDelete('${c.rfid_code}')">Del</button>
+          </td>`;
+        tbody.appendChild(tr);
+      }
+    }
+
+    function showAddDialog() {
+      document.getElementById('dialog-title').textContent = 'Add RFID Code';
+      document.getElementById('f-code').value = '';
+      document.getElementById('f-code').readOnly = false;
+      document.getElementById('f-suit').value = 's';
+      document.getElementById('f-rank').value = 'A';
+      document.getElementById('f-value').value = 1;
+      document.getElementById('code-dialog').showModal();
+    }
+
+    function editCode(code) {
+      const c = allCodes.find(x => x.rfid_code === code);
+      if (!c) return;
+      document.getElementById('dialog-title').textContent = 'Edit RFID Code';
+      document.getElementById('f-code').value = c.rfid_code;
+      document.getElementById('f-code').readOnly = true;
+      document.getElementById('f-suit').value = c.suit;
+      document.getElementById('f-rank').value = c.rank;
+      document.getElementById('f-value').value = c.value;
+      document.getElementById('code-dialog').showModal();
+    }
+
+    async function handleCodeSubmit(e) {
+      e.preventDefault();
+      const body = {
+        rfid_code: document.getElementById('f-code').value,
+        suit: document.getElementById('f-suit').value,
+        rank: document.getElementById('f-rank').value,
+        value: parseInt(document.getElementById('f-value').value),
+      };
+      try {
+        const resp = await fetch('/api/admin/rfid-codes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const result = await resp.json();
+        if (result.success) {
+          document.getElementById('code-dialog').close();
+          showStatus('Code saved: ' + body.rfid_code, true);
+          loadCodes();
+        } else {
+          showStatus('Error: ' + (result.error || 'Unknown'), false);
+        }
+      } catch (err) {
+        showStatus('Save failed: ' + err.message, false);
+      }
+      return false;
+    }
+
+    function confirmDelete(code) {
+      document.getElementById('delete-code-display').textContent = code;
+      const dialog = document.getElementById('delete-dialog');
+      const btn = document.getElementById('delete-confirm-btn');
+      btn.onclick = () => deleteCode(code);
+      dialog.showModal();
+    }
+
+    async function deleteCode(code) {
+      try {
+        const resp = await fetch('/api/admin/rfid-codes/' + encodeURIComponent(code), { method: 'DELETE' });
+        const result = await resp.json();
+        document.getElementById('delete-dialog').close();
+        if (result.success) {
+          showStatus('Deleted: ' + code, true);
+          loadCodes();
+        } else {
+          showStatus('Error: ' + (result.error || 'Unknown'), false);
+        }
+      } catch (err) {
+        showStatus('Delete failed: ' + err.message, false);
+      }
+    }
+
+    // --- Scan Positions ---
+
+    async function loadPositions() {
+      try {
+        const resp = await fetch('/api/admin/scan-positions');
+        const positions = await resp.json();
+        renderPositions(positions);
+      } catch (err) {
+        showStatus('Failed to load positions: ' + err.message, false);
+      }
+    }
+
+    function renderPositions(positions) {
+      const tbody = document.getElementById('positions-tbody');
+      tbody.innerHTML = '';
+      for (const p of positions) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="font-variant-numeric:tabular-nums">${p.scan_index}</td>
+          <td>${p.position_name}</td>
+          <td style="font-variant-numeric:tabular-nums">${p.server_intposi === -1 ? '<span style="color:#94a3b8">dynamic</span>' : p.server_intposi}</td>
+          <td style="font-size:0.75rem;color:#64748b">${p.updated_at || ''}</td>
+          <td>
+            <button class="btn-secondary" style="padding:0.25rem 0.5rem;font-size:0.75rem" onclick="editPosition(${p.scan_index}, '${p.position_name}', ${p.server_intposi})">Edit</button>
+          </td>`;
+        tbody.appendChild(tr);
+      }
+    }
+
+    function editPosition(index, name, intposi) {
+      document.getElementById('fp-index').value = index;
+      document.getElementById('fp-name').value = name;
+      document.getElementById('fp-intposi').value = intposi;
+      document.getElementById('position-dialog').showModal();
+    }
+
+    async function handlePositionSubmit(e) {
+      e.preventDefault();
+      const index = document.getElementById('fp-index').value;
+      const body = {
+        position_name: document.getElementById('fp-name').value,
+        server_intposi: parseInt(document.getElementById('fp-intposi').value),
+      };
+      try {
+        const resp = await fetch('/api/admin/scan-positions/' + index, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const result = await resp.json();
+        if (result.success) {
+          document.getElementById('position-dialog').close();
+          showStatus('Position updated', true);
+          loadPositions();
+        } else {
+          showStatus('Error: ' + (result.error || 'Unknown'), false);
+        }
+      } catch (err) {
+        showStatus('Save failed: ' + err.message, false);
+      }
+      return false;
+    }
+
+    // --- Init ---
+    loadCodes();
+    loadPositions();
+    </script>
+</body>
+</html>

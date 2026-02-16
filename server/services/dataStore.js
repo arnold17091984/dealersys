@@ -2,61 +2,7 @@ const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
 const config = require('../config');
-
-// Default RFID → card mappings (from dealer_v5 roule.js)
-const DEFAULT_CARD_CODES = [
-  // Spades
-  { rfid_code: '24580', suit: 's', rank: 'A', value: 1 },
-  { rfid_code: '19204', suit: 's', rank: '2', value: 2 },
-  { rfid_code: '06404', suit: 's', rank: '3', value: 3 },
-  { rfid_code: '14596', suit: 's', rank: '4', value: 4 },
-  { rfid_code: '20228', suit: 's', rank: '5', value: 5 },
-  { rfid_code: '19716', suit: 's', rank: '6', value: 6 },
-  { rfid_code: '18436', suit: 's', rank: '7', value: 7 },
-  { rfid_code: '06916', suit: 's', rank: '8', value: 8 },
-  { rfid_code: '57604', suit: 's', rank: '9', value: 9 },
-  { rfid_code: '27652', suit: 's', rank: '10', value: 0 },
-  { rfid_code: '49924', suit: 's', rank: 'J', value: 0 },
-  { rfid_code: '06660', suit: 's', rank: 'Q', value: 0 },
-  { rfid_code: '15108', suit: 's', rank: 'K', value: 0 },
-  // Diamonds
-  { rfid_code: '19972', suit: 'd', rank: 'A', value: 1 },
-  { rfid_code: '11012', suit: 'd', rank: '2', value: 2 },
-  { rfid_code: '13316', suit: 'd', rank: '3', value: 3 },
-  { rfid_code: '09220', suit: 'd', rank: '4', value: 4 },
-  { rfid_code: '08452', suit: 'd', rank: '5', value: 5 },
-  { rfid_code: '12548', suit: 'd', rank: '6', value: 6 },
-  { rfid_code: '28164', suit: 'd', rank: '7', value: 7 },
-  { rfid_code: '35076', suit: 'd', rank: '8', value: 8 },
-  { rfid_code: '22788', suit: 'd', rank: '10', value: 0 },
-  { rfid_code: '36356', suit: 'd', rank: 'J', value: 0 },
-  { rfid_code: '37380', suit: 'd', rank: 'Q', value: 0 },
-  { rfid_code: '20740', suit: 'd', rank: 'K', value: 0 },
-  // Hearts
-  { rfid_code: '45316', suit: 'h', rank: 'A', value: 1 },
-  { rfid_code: '12804', suit: 'h', rank: '2', value: 2 },
-  { rfid_code: '56324', suit: 'h', rank: '3', value: 3 },
-  { rfid_code: '07172', suit: 'h', rank: '4', value: 4 },
-  { rfid_code: '08196', suit: 'h', rank: '5', value: 5 },
-  { rfid_code: '33540', suit: 'h', rank: '6', value: 6 },
-  { rfid_code: '08964', suit: 'h', rank: '7', value: 7 },
-  { rfid_code: '35844', suit: 'h', rank: '8', value: 8 },
-  { rfid_code: '34564', suit: 'h', rank: '9', value: 9 },
-  { rfid_code: '02308', suit: 'h', rank: '10', value: 0 },
-  { rfid_code: '08708', suit: 'h', rank: 'J', value: 0 },
-  { rfid_code: '13828', suit: 'h', rank: 'Q', value: 0 },
-  { rfid_code: '46084', suit: 'h', rank: 'K', value: 0 },
-  // Clubs
-  { rfid_code: '44292', suit: 'c', rank: 'A', value: 1 },
-  { rfid_code: '23300', suit: 'c', rank: '2', value: 2 },
-  { rfid_code: '49156', suit: 'c', rank: '4', value: 4 },
-  { rfid_code: '32772', suit: 'c', rank: '5', value: 5 },
-  { rfid_code: '10244', suit: 'c', rank: '7', value: 7 },
-  { rfid_code: '48132', suit: 'c', rank: '9', value: 9 },
-  { rfid_code: '05636', suit: 'c', rank: 'J', value: 0 },
-  { rfid_code: '15876', suit: 'c', rank: 'Q', value: 0 },
-  { rfid_code: '23556', suit: 'c', rank: 'K', value: 0 },
-];
+const { seed } = require('../db/seed');
 
 let db;
 
@@ -75,26 +21,10 @@ function init() {
   );
   db.exec(schema);
 
-  seedCardCodes();
+  // Seed RFID codes and scan positions if tables are empty
+  seed(db);
 
   return db;
-}
-
-// Seed card_codes table with defaults if empty
-function seedCardCodes() {
-  const count = db.prepare('SELECT COUNT(*) as count FROM card_codes').get().count;
-  if (count > 0) return;
-
-  const insert = db.prepare(
-    'INSERT OR IGNORE INTO card_codes (rfid_code, suit, rank, value) VALUES (?, ?, ?, ?)'
-  );
-  const tx = db.transaction(() => {
-    for (const c of DEFAULT_CARD_CODES) {
-      insert.run(c.rfid_code, c.suit, c.rank, c.value);
-    }
-  });
-  tx();
-  console.log(`[DataStore] Seeded ${DEFAULT_CARD_CODES.length} card codes`);
 }
 
 function getDb() {
@@ -213,14 +143,16 @@ function getForwardStats() {
   };
 }
 
-// Card codes CRUD
-function getAllCardCodes() {
-  return getDb().prepare('SELECT * FROM card_codes ORDER BY suit, rank').all();
+// RFID codes
+function getAllRfidCodes() {
+  return getDb()
+    .prepare('SELECT rfid_code, suit, rank, value, notes, updated_at FROM rfid_codes ORDER BY suit, rank')
+    .all();
 }
 
-function upsertCardCode(rfidCode, suit, rank, value, notes) {
+function upsertRfidCode(code, suit, rank, value, notes) {
   const stmt = getDb().prepare(`
-    INSERT INTO card_codes (rfid_code, suit, rank, value, notes, updated_at)
+    INSERT INTO rfid_codes (rfid_code, suit, rank, value, notes, updated_at)
     VALUES (?, ?, ?, ?, ?, datetime('now'))
     ON CONFLICT(rfid_code) DO UPDATE SET
       suit = excluded.suit,
@@ -229,11 +161,31 @@ function upsertCardCode(rfidCode, suit, rank, value, notes) {
       notes = excluded.notes,
       updated_at = datetime('now')
   `);
-  return stmt.run(rfidCode, suit, rank, value, notes || null);
+  return stmt.run(code, suit, rank, value, notes || null);
 }
 
-function deleteCardCode(rfidCode) {
-  return getDb().prepare('DELETE FROM card_codes WHERE rfid_code = ?').run(rfidCode);
+function deleteRfidCode(code) {
+  return getDb()
+    .prepare('DELETE FROM rfid_codes WHERE rfid_code = ?')
+    .run(code);
+}
+
+// Scan positions
+function getAllScanPositions() {
+  return getDb()
+    .prepare('SELECT scan_index, position_name, server_intposi, updated_at FROM scan_positions ORDER BY scan_index')
+    .all();
+}
+
+function updateScanPosition(index, name, intposi) {
+  const stmt = getDb().prepare(`
+    UPDATE scan_positions SET
+      position_name = ?,
+      server_intposi = ?,
+      updated_at = datetime('now')
+    WHERE scan_index = ?
+  `);
+  return stmt.run(name, intposi, index);
 }
 
 module.exports = {
@@ -250,7 +202,9 @@ module.exports = {
   markForwardSent,
   markForwardFailed,
   getForwardStats,
-  getAllCardCodes,
-  upsertCardCode,
-  deleteCardCode,
+  getAllRfidCodes,
+  upsertRfidCode,
+  deleteRfidCode,
+  getAllScanPositions,
+  updateScanPosition,
 };

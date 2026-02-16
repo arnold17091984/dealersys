@@ -1,72 +1,8 @@
 // Card Engine - Extracted from dealer_tools/js/roule.js
 // RFID code mapping, baccarat rules, result calculation
+// CODE_MAP, POSITION_NAMES, SCAN_TO_SERVER_POS are loaded dynamically from DB via loadCodes/loadPositions
 
-// Default CODE_MAP (fallback when DB is unavailable)
-const DEFAULT_CODE_MAP = {
-  // Spades
-  '24580': { suit: 's', rank: 'A', value: 1 },
-  '19204': { suit: 's', rank: '2', value: 2 },
-  '06404': { suit: 's', rank: '3', value: 3 },
-  '14596': { suit: 's', rank: '4', value: 4 },
-  '20228': { suit: 's', rank: '5', value: 5 },
-  '19716': { suit: 's', rank: '6', value: 6 },
-  '18436': { suit: 's', rank: '7', value: 7 },
-  '06916': { suit: 's', rank: '8', value: 8 },
-  '57604': { suit: 's', rank: '9', value: 9 },
-  '27652': { suit: 's', rank: '10', value: 0 },
-  '49924': { suit: 's', rank: 'J', value: 0 },
-  '06660': { suit: 's', rank: 'Q', value: 0 },
-  '15108': { suit: 's', rank: 'K', value: 0 },
-  // Diamonds
-  '19972': { suit: 'd', rank: 'A', value: 1 },
-  '11012': { suit: 'd', rank: '2', value: 2 },
-  '13316': { suit: 'd', rank: '3', value: 3 },
-  '09220': { suit: 'd', rank: '4', value: 4 },
-  '08452': { suit: 'd', rank: '5', value: 5 },
-  '12548': { suit: 'd', rank: '6', value: 6 },
-  '28164': { suit: 'd', rank: '7', value: 7 },
-  '35076': { suit: 'd', rank: '8', value: 8 },
-  '22788': { suit: 'd', rank: '10', value: 0 },
-  '36356': { suit: 'd', rank: 'J', value: 0 },
-  '37380': { suit: 'd', rank: 'Q', value: 0 },
-  '20740': { suit: 'd', rank: 'K', value: 0 },
-  // Hearts
-  '45316': { suit: 'h', rank: 'A', value: 1 },
-  '12804': { suit: 'h', rank: '2', value: 2 },
-  '56324': { suit: 'h', rank: '3', value: 3 },
-  '07172': { suit: 'h', rank: '4', value: 4 },
-  '08196': { suit: 'h', rank: '5', value: 5 },
-  '33540': { suit: 'h', rank: '6', value: 6 },
-  '08964': { suit: 'h', rank: '7', value: 7 },
-  '35844': { suit: 'h', rank: '8', value: 8 },
-  '34564': { suit: 'h', rank: '9', value: 9 },
-  '02308': { suit: 'h', rank: '10', value: 0 },
-  '08708': { suit: 'h', rank: 'J', value: 0 },
-  '13828': { suit: 'h', rank: 'Q', value: 0 },
-  '46084': { suit: 'h', rank: 'K', value: 0 },
-  // Clubs
-  '44292': { suit: 'c', rank: 'A', value: 1 },
-  '23300': { suit: 'c', rank: '2', value: 2 },
-  '49156': { suit: 'c', rank: '4', value: 4 },
-  '32772': { suit: 'c', rank: '5', value: 5 },
-  '10244': { suit: 'c', rank: '7', value: 7 },
-  '48132': { suit: 'c', rank: '9', value: 9 },
-  '05636': { suit: 'c', rank: 'J', value: 0 },
-  '15876': { suit: 'c', rank: 'Q', value: 0 },
-  '23556': { suit: 'c', rank: 'K', value: 0 },
-};
-
-// Mutable code map (loaded from DB, falls back to DEFAULT_CODE_MAP)
-let codeMap = { ...DEFAULT_CODE_MAP };
-
-// Load code map from API response (array of {rfid_code, suit, rank, value})
-function loadCodeMap(entries) {
-  codeMap = {};
-  for (const entry of entries) {
-    codeMap[entry.rfid_code] = { suit: entry.suit, rank: entry.rank, value: entry.value };
-  }
-  console.log(`[CardEngine] Loaded ${entries.length} card codes from DB`);
-}
+let codeMap = {};
 
 const SUITS = {
   d: { symbol: '\u2666', color: 'suit-red', name: 'Diamonds' },
@@ -75,33 +11,36 @@ const SUITS = {
   h: { symbol: '\u2665', color: 'suit-red', name: 'Hearts' },
 };
 
-// Card position mapping (scan order → logical position)
-// Scan order: 0=P-Right, 1=B-Right, 2=P-Left, 3=B-Left, 4=Extra-Right(5th), 5=Extra-Left(6th)
-let positionNames = ['P-Right', 'B-Right', 'P-Left', 'B-Left', '5th Card', '6th Card'];
+// Card position mapping (loaded from DB)
+let positionNames = [];
 
-// Server card position mapping
-// intPosi: 1=Player1, 2=Player2, 3=Player3, 4=Banker1, 5=Banker2, 6=Banker3
-let scanToServerPos = {
-  0: 2, // P-Right → Player2
-  1: 5, // B-Right → Banker2
-  2: 1, // P-Left → Player1
-  3: 4, // B-Left → Banker1
-  4: -1, // 5th card (dynamic: Player3 or Banker3)
-  5: -1, // 6th card (dynamic: Banker3)
-};
+// Server card position mapping (loaded from DB)
+let scanToServerPos = {};
 
-// Load scan order from server config
-function loadScanOrder(config) {
-  if (config.positionNames) {
-    positionNames = config.positionNames;
+// Load RFID code mappings from DB via admin API
+async function loadCodes() {
+  const resp = await fetch('/api/admin/rfid-codes');
+  if (!resp.ok) throw new Error('Failed to load RFID codes: ' + resp.status);
+  const codes = await resp.json();
+  codeMap = {};
+  for (const c of codes) {
+    codeMap[c.rfid_code] = { suit: c.suit, rank: c.rank, value: c.value };
   }
-  if (config.scanToServerPos) {
-    scanToServerPos = {};
-    for (const [k, v] of Object.entries(config.scanToServerPos)) {
-      scanToServerPos[parseInt(k)] = v;
-    }
+  console.log(`[CardEngine] Loaded ${codes.length} RFID codes from DB`);
+}
+
+// Load scan position mappings from DB via admin API
+async function loadPositions() {
+  const resp = await fetch('/api/admin/scan-positions');
+  if (!resp.ok) throw new Error('Failed to load scan positions: ' + resp.status);
+  const positions = await resp.json();
+  positionNames = [];
+  scanToServerPos = {};
+  for (const p of positions) {
+    positionNames[p.scan_index] = p.position_name;
+    scanToServerPos[p.scan_index] = p.server_intposi;
   }
-  console.log('[CardEngine] Loaded scan order from config');
+  console.log(`[CardEngine] Loaded ${positions.length} scan positions from DB`);
 }
 
 function resolveCode(code) {
@@ -277,12 +216,12 @@ window.CardEngine = {
   SUITS,
   get POSITION_NAMES() { return positionNames; },
   get SCAN_TO_SERVER_POS() { return scanToServerPos; },
-  loadCodeMap,
-  loadScanOrder,
   resolveCode,
   doesBankerDraw,
   getSimulatedResult,
   getRequiredCards,
   findWinScenario,
   parseServerCards,
+  loadCodes,
+  loadPositions,
 };

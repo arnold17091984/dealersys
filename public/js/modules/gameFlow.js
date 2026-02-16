@@ -14,7 +14,7 @@ const GameFlow = {
   roundNo: null,
   shoeIdx: null,
   deck: [], // Scanned cards in order
-  cardBuffer: [], // Cards scanned during BETTING, flushed after stopBetting
+  cardBuffer: [], // Cards scanned during BETTING (sent after stop)
   betTimer: 20, // Default bet time seconds
 
   // Callbacks
@@ -79,9 +79,9 @@ const GameFlow = {
     try {
       await ServerComm.stopBetting(this.table);
       this.state = this.DEALING;
-      this.emitStateChange();
-      // Flush any cards buffered during betting
+      // Flush buffered cards to server now that betting is closed
       await this.flushCardBuffer();
+      this.emitStateChange();
       return true;
     } catch (err) {
       this.emitError('Stop betting error: ' + err.message);
@@ -90,8 +90,8 @@ const GameFlow = {
   },
 
   // Process a scanned RFID code
-  // Cards can be scanned during BETTING (while timer runs) and DEALING states
-  // During BETTING, cards are buffered locally and NOT sent to server (security)
+  // During BETTING: cards are buffered locally and NOT sent to server (security)
+  // During DEALING: cards are sent to server immediately
   async processCard(code) {
     if (this.state !== this.DEALING && this.state !== this.BETTING) {
       console.warn('[GameFlow] Cannot process card: state is', this.state);
@@ -115,7 +115,7 @@ const GameFlow = {
       this.cardBuffer.push({ position, card, code });
     } else {
       // DEALING state - send immediately
-      this.sendCardToServer(position, card, code);
+      await this.sendCardToServer(position, card, code);
     }
 
     if (this.onCardAdded) {
@@ -156,12 +156,11 @@ const GameFlow = {
     }
   },
 
-  // Map scan position to server intPosi
+  // Map scan position to server intPosi (uses DB-loaded mapping)
   getServerPosition(scanIndex) {
-    // Use configurable mapping from CardEngine
     const map = CardEngine.SCAN_TO_SERVER_POS;
 
-    if (scanIndex < 4) return map[scanIndex] || 0;
+    if (scanIndex < 4) return map[scanIndex] !== undefined ? map[scanIndex] : 0;
 
     // 5th and 6th cards: determine owner dynamically
     const result = CardEngine.getSimulatedResult(this.deck.slice(0, scanIndex));
